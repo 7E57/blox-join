@@ -1,8 +1,11 @@
 import discord
 from discord.ext import commands
 import urllib.parse
+import requests
 
-TOKEN = 'BOT TOKEN HERE'
+TOKEN = 'BOT TOKEN'
+ROBLOSECURITY_COOKIE = 'ROBLOX COOKIE'
+GUILD_ID = 'DISCORD SERVER'
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -16,6 +19,32 @@ def generate_url(game_id, private_code):
     query_string = urllib.parse.urlencode(query_params)
     unique_url = f'http://blox-join.x10.mx/redirect.html?{query_string}'
     return unique_url
+
+def get_game_name(game_id):
+    if game_id is None:
+        return None
+
+    headers = {
+        'Cookie': f'.ROBLOSECURITY={ROBLOSECURITY_COOKIE}',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+    }
+
+    params = {
+        'placeIds': game_id
+    }
+
+    url = 'https://games.roblox.com/v1/games/multiget-place-details'
+
+    response = requests.get(url, headers=headers, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+        if data:
+            game_name = data[0].get('name')
+            return game_name
+
+    return None
 
 @bot.event
 async def on_ready():
@@ -37,8 +66,15 @@ async def on_message(message):
                 git_url = "https://github.com/7E57/blox-join/blob/main/bloxjoin.py"
                 embed = discord.Embed(title="Open Roblox Game from URL", description=f"Click the link below to open the Roblox game from the URL:\n[Join Game]({game_url}) | [Available UGCs]({ugc_url}) | [GitHub]({git_url})", color=discord.Color.gold())
                 await message.channel.send(embed=embed)
+
+                game_name = get_game_name(game_id)
+                if game_name:
+                    await bot.change_presence(activity=discord.Game(name=game_name))
+                else:
+                    await bot.change_presence(activity=None)
             else:
                 await message.channel.send("Unable to extract game ID and private code from the URL.")
+    
     return
 
 def extract_urls(text):
